@@ -48,8 +48,9 @@ macro(daq_setup_environment)
 
   enable_testing()
 
-  set(directories_to_copy "scripts" "test/scripts" "python" "schema" "config")
-
+  set(directories_to_copy)
+  file(GLOB directories_to_copy CONFIGURE_DEPENDS "scripts" "test/scripts" "python/pkg" "schema" "config")
+      
   foreach(directory_to_copy ${directories_to_copy})
     if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${directory_to_copy})
       string(REPLACE "/" "_" directory_as_target ${directory_to_copy})
@@ -146,6 +147,48 @@ function(daq_add_library)
 
   _daq_define_exportname()
   install(TARGETS ${libname} EXPORT ${DAQ_PROJECT_EXPORTNAME} )
+  set(DAQ_PROJECT_INSTALLS_TARGETS true PARENT_SCOPE)
+
+endfunction()
+
+####################################################################################################
+# daq_add_python_bindings:
+# Usage:
+# daq_add_python_bindings( <file | glob expression 1> ... [LINK_LIBRARIES <lib1> ...])
+function(daq_add_python_bindings)
+
+  cmake_parse_arguments(PYBINDSOPTS "" "" "LINK_LIBRARIES" ${ARGN})
+
+  set(pybindsname pybinds_${PROJECT_NAME})
+
+  set(PYBINDS_PATH "python/src")
+
+  set(pybindsrcs)
+  foreach(f ${PYBINDSOPTS_UNPARSED_ARGUMENTS})
+
+    if(${f} MATCHES ".*\\*.*")  # An argument with an "*" in it is treated as a glob
+
+      set(fpaths)
+      file(GLOB fpaths CONFIGURE_DEPENDS ${PYBINDS_PATH}/${f})
+
+      if (fpaths)
+        set(pybindsrcs ${pybindsrcs} ${fpaths})
+      else()
+        message(WARNING "When defining list of files from which to build library \"${pybindsname}\", no files in ${CMAKE_CURRENT_SOURCE_DIR}/${PYBINDS_PATH} match the glob \"${f}\"")
+      endif()
+    else()
+       # may be generated file, so just add
+      set(pybindsrcs ${pybindsrcs} ${PYBINDS_PATH}/${f})
+    endif()
+  endforeach()
+
+  add_library(${pybindsname} SHARED ${pybindsrcs})
+  target_link_libraries(${pybindsname} PUBLIC ${PYBINDSOPTS_LINK_LIBRARIES}) 
+  target_include_directories(${pybindsname} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/pybinds/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> )
+  _daq_set_target_output_dirs( ${pybindsname} ${PYBINDS_PATH} )
+
+  _daq_define_exportname()
+  install(TARGETS ${pybindsname} EXPORT ${DAQ_PROJECT_EXPORTNAME} )
   set(DAQ_PROJECT_INSTALLS_TARGETS true PARENT_SCOPE)
 
 endfunction()
@@ -417,10 +460,10 @@ function(daq_install)
   install(DIRECTORY include/${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h??")
   install(DIRECTORY cmake/ DESTINATION ${CMAKE_INSTALL_CMAKEDIR} FILES_MATCHING PATTERN "*.cmake")
 
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python/  DESTINATION ${CMAKE_INSTALL_PYTHONDIR} OPTIONAL FILES_MATCHING PATTERN "__pycache__" EXCLUDE PATTERN "*.py" )
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/scripts/ DESTINATION ${CMAKE_INSTALL_BINDIR} USE_SOURCE_PERMISSIONS OPTIONAL)
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/schema/  DESTINATION ${CMAKE_INSTALL_SCHEMADIR} OPTIONAL FILES_MATCHING PATTERN "*.jsonnet")
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/config/  DESTINATION ${CMAKE_INSTALL_SCHEMADIR} OPTIONAL FILES_MATCHING PATTERN "*.json")
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/python/pkg/ DESTINATION ${CMAKE_INSTALL_PYTHONDIR} OPTIONAL FILES_MATCHING PATTERN "__pycache__" EXCLUDE PATTERN "*.py" )
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/scripts/    DESTINATION ${CMAKE_INSTALL_BINDIR} USE_SOURCE_PERMISSIONS OPTIONAL)
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/schema/     DESTINATION ${CMAKE_INSTALL_SCHEMADIR} OPTIONAL FILES_MATCHING PATTERN "*.jsonnet")
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/config/     DESTINATION ${CMAKE_INSTALL_SCHEMADIR} OPTIONAL FILES_MATCHING PATTERN "*.json")
 
   set(versionfile        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake)
   set(configfiletemplate ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in)
