@@ -245,7 +245,8 @@ function(daq_codegen)
 
       # Convenience variable
       set(outpath ${outdir}/${outfile})
-
+      string(REPLACE "${CMAKE_BINARY_DIR}/${PROJECT_NAME}/" "" outpath_rel ${outpath})
+      
       # Make up a target name
       string(REPLACE "${CMAKE_CURRENT_BINARY_DIR}" "" moo_target ${outpath})
       string(REGEX REPLACE "[\./-]" "_" moo_target "moo_${PROJECT_NAME}${moo_target}")
@@ -265,11 +266,12 @@ function(daq_codegen)
               os=${schema_file}
         MODEL ${CGOPTS_MODEL}
         TEMPL ${templfile}
-        CODEGEN ${outpath}
+        CODEGEN ${outpath_rel}
         CODEDEP ${schema_dir}/${schema_file}
         DEPS_DIR ${CMAKE_CODEGEN_BINARY_DIR}/deps
       )
-      add_dependencies( ${PRE_BUILD_STAGE_DONE_TRGT} ${moo_target})
+    add_dependencies( ${PRE_BUILD_STAGE_DONE_TRGT} ${moo_target})
+
     endforeach()
 
   endforeach()

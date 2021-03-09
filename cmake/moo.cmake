@@ -89,14 +89,27 @@ function(moo_render)
     endforeach()
   endif()
 
-  set(MC_CODEGEN_ARGS ${MC_BASE_ARGS} render -o ${MC_CODEGEN} ${MC_MODEL} ${MC_TEMPL})
+  # TODO PAR 2021-03-09: the paths here are fiddly. "moo render -d"
+  # creates a .d file whose target is exactly the string passed to the
+  # -o option. When ninja reads the .d file, it wants the target to be
+  # exactly a certain string (I think the name of a target that ninja
+  # already knows), otherwise the whole depfile thing doesn't work,
+  # and targets are rebuilt unnecessarily ("ninja -d explain" is very
+  # useful for debugging this). That's what all the explicit
+  # ${PROJECT_NAME} additions are for. There's probably a tidier way
+  # to do this so it's less confusing
+  set(DEPS_FILE "${MC_CODEGEN}.d")
+  message(NOTICE "moo_render with codegen ${MC_CODEGEN}, deps_file ${DEPS_FILE}")
+  set(MC_CODEGEN_ARGS ${MC_BASE_ARGS} render -o ${PROJECT_NAME}/${MC_CODEGEN} -d  ${PROJECT_NAME}/${DEPS_FILE} ${MC_MODEL} ${MC_TEMPL})
 
-  moo_update_deps("${MC_BASE_ARGS}" ${MC_DEPS_DIR} ${MC_TARGET} ${MC_CODEDEP} MC_CODEDEP)
-  moo_update_deps("${MC_BASE_ARGS}" ${MC_DEPS_DIR} ${MC_TARGET} ${MC_TEMPL} MC_TEMPL)
-
-  add_custom_command(OUTPUT ${MC_CODEGEN} COMMAND ${MOO_CMD} ${MC_CODEGEN_ARGS} DEPENDS ${MC_CODEDEP})
-  add_custom_target(${MC_TARGET} DEPENDS ${MC_CODEGEN} ${MC_CODEDEP_DEPS_TARGET} ${MC_TEMPL_DEPS_TARGET})
-
+  add_custom_command(
+    OUTPUT ${MC_CODEGEN}
+    COMMAND ${MOO_CMD} ${MC_CODEGEN_ARGS}
+    DEPENDS ${MC_CODEDEP}
+    DEPFILE ${PROJECT_NAME}/${DEPS_FILE}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )
+  add_custom_target(${MC_TARGET} DEPENDS  ${MC_CODEGEN} )
 endfunction()
 
 
