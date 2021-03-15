@@ -2,45 +2,6 @@
 # For now, use eg cmake -DMOO_CMD=$(which moo)
 set(MOO_CMD "moo" CACHE STRING "The 'moo' command")
 
-
-
-####################################################################################################
-# moo_update_deps:
-#
-# moo_update_deps is an utility function to handle moo dependencies behind the scenes.
-# It creates a custom target to generate a moo dependency files and sets its modification date to 
-# the most reacent file listed in the dependencies
-function(moo_update_deps base_args deps_dir main_target source target_prefix)
-
-  get_filename_component(basename ${source} NAME)
-  string(REGEX REPLACE "[^a-zA-Z0-9]" "_" basename "${basename}")
-  set(DEPS_TARGET "${main_target}__${basename}_deps")
-  set(DEPS_FILE "${deps_dir}/${main_target}__${basename}.d")
-  set(DEPS_PHONY "${deps_dir}/${main_target}__${basename}.d.phony")
-
-  # moo_deps_name(${MC_DEPS_DIR} ${MC_TARGET} ${MC_CODEDEP} MC_CODEDEP)
-
-  set(DEPS_ARGS ${base_args} imports -o ${DEPS_FILE} ${source})
-  add_custom_command(
-      COMMAND ${MOO_CMD} ARGS ${DEPS_ARGS}
-      COMMAND bash ARGS -c "touch -r $(ls -t $(cat ${DEPS_FILE} ) | head -n1) ${DEPS_FILE}"
-      VERBATIM
-      COMMENT "Updating moo dependencies of ${source}"
-      OUTPUT ${DEPS_FILE}
-      OUTPUT ${DEPS_PHONY}
-  )
-
-  # # Custom target to force the update of jsonnet dependencies at build time
-  # # Note the phony dependency to force it to be re-run every time
-  add_custom_target(${DEPS_TARGET}
-      ALL
-      DEPENDS ${DEPS_FILE} ${DEPS_PHONY}
-  )
-
-  set(${target_prefix}_DEPS_TARGET ${DEPS_TARGET} PARENT_SCOPE)
-endfunction()
-
-
 ####################################################################################################
 # moo_update_deps:
 # Usage:
